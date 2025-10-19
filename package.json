@@ -1,0 +1,30 @@
+{
+  "name": "acorn-activity-tracker",
+  "version": "1.0.0",
+  "description": "Track your habits with a clear, intuitive interface",
+  "scripts": {
+    "build": "node scripts/build.js",
+    "test": "node scripts/test.js",
+    "serve": "python3 -m http.server 8000",
+    "generate-ph-content": "node scripts/generate-ph-content.js",
+    "post-to-ph": "node scripts/post-to-ph.js",
+    "update-changelog": "node scripts/update-changelog.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/junsang-dong/vibe-1130-acorn-activity-tracker-app-auto-release-p2"
+  },
+  "keywords": [
+    "habit-tracker",
+    "pwa",
+    "productivity",
+    "habits",
+    "tracking"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "axios": "^1.6.0"
+  }
+}
+

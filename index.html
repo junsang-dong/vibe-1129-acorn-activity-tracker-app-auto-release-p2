@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Track your habits with a clear, intuitive interface. Build consistency and stay motivated.">
+  <meta name="theme-color" content="#4CAF50">
+  
+  <title>Acorn Activity Tracker - 습관 추적 앱</title>
+  
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="/manifest.json">
+  
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌰</text></svg>">
+  
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="/css/styles.css">
+  
+  <!-- Preload critical resources -->
+  <link rel="preload" href="/js/app.js" as="script">
+</head>
+<body>
+  <div id="app">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="container">
+        <div class="header-content">
+          <div class="logo">
+            <span class="logo-icon">🌰</span>
+            <h1 class="logo-text">Acorn</h1>
+          </div>
+          
+          <nav class="header-nav">
+            <button class="btn-icon" id="btn-theme" title="테마 변경" aria-label="테마 변경">
+              🌙
+            </button>
+            <button class="btn-icon" id="btn-settings" title="설정" aria-label="설정">
+              ⚙️
+            </button>
+          </nav>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="app-main">
+      <div class="container">
+        <!-- Welcome Message -->
+        <section class="welcome" id="welcome">
+          <h2>습관 추적을 시작하세요! 🌱</h2>
+          <p>일상의 작은 습관들이 모여 큰 변화를 만듭니다.</p>
+        </section>
+
+        <!-- Habits Grid -->
+        <section class="habits-section">
+          <div class="section-header">
+            <h2 class="section-title">나의 습관</h2>
+            <button class="btn btn-primary" id="btn-add-habit">
+              <span class="btn-icon">➕</span>
+              <span class="btn-text">습관 추가</span>
+            </button>
+          </div>
+
+          <div class="habits-grid" id="habits-grid">
+            <!-- Habits will be dynamically inserted here -->
+            <div class="empty-state" id="empty-state">
+              <div class="empty-icon">📝</div>
+              <h3>아직 습관이 없습니다</h3>
+              <p>첫 번째 습관을 추가하고 추적을 시작하세요!</p>
+              <button class="btn btn-primary" data-add-habit>
+                습관 추가하기
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- Archived Habits -->
+        <section class="archived-section" id="archived-section" style="display: none;">
+          <div class="section-header">
+            <h2 class="section-title">보관된 습관</h2>
+          </div>
+          <div class="habits-grid" id="archived-grid">
+            <!-- Archived habits will be dynamically inserted here -->
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      <div class="container">
+        <p>
+          Made with ❤️ and ☕️ | 
+          <a href="https://github.com/junsang-dong/vibe-1130-acorn-activity-tracker-app-auto-release-p2" target="_blank" rel="noopener">
+            GitHub
+          </a>
+        </p>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Modal: Add/Edit Habit -->
+  <div class="modal" id="modal-habit" aria-hidden="true">
+    <div class="modal-overlay" data-modal-close></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title" id="modal-habit-title">새 습관 추가</h2>
+        <button class="btn-icon modal-close" data-modal-close aria-label="닫기">
+          ✕
+        </button>
+      </div>
+      
+      <form class="modal-body" id="form-habit">
+        <div class="form-group">
+          <label for="habit-name">습관 이름 *</label>
+          <input 
+            type="text" 
+            id="habit-name" 
+            name="name" 
+            placeholder="예: 물 8잔 마시기" 
+            required 
+            maxlength="50"
+          >
+        </div>
+
+        <div class="form-group">
+          <label for="habit-description">설명</label>
+          <textarea 
+            id="habit-description" 
+            name="description" 
+            placeholder="이 습관에 대한 설명을 입력하세요..."
+            rows="3"
+            maxlength="200"
+          ></textarea>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="habit-color">색상</label>
+            <input 
+              type="color" 
+              id="habit-color" 
+              name="color" 
+              value="#4CAF50"
+            >
+          </div>
+
+          <div class="form-group">
+            <label for="habit-icon">아이콘</label>
+            <select id="habit-icon" name="icon">
+              <option value="💪">💪 운동</option>
+              <option value="📚">📚 독서</option>
+              <option value="💧">💧 물</option>
+              <option value="🧘">🧘 명상</option>
+              <option value="🏃">🏃 달리기</option>
+              <option value="🎨">🎨 취미</option>
+              <option value="✍️">✍️ 글쓰기</option>
+              <option value="🌱">🌱 식물</option>
+              <option value="🎵">🎵 음악</option>
+              <option value="🍎">🍎 건강식</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>목표 빈도</label>
+          <div class="form-row">
+            <select id="habit-frequency-type" name="frequencyType">
+              <option value="daily">매일</option>
+              <option value="weekly">주간</option>
+            </select>
+            <input 
+              type="number" 
+              id="habit-frequency-count" 
+              name="frequencyCount" 
+              min="1" 
+              max="7" 
+              value="1"
+              placeholder="횟수"
+            >
+            <span class="form-text">회</span>
+          </div>
+        </div>
+      </form>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-modal-close>
+          취소
+        </button>
+        <button type="submit" class="btn btn-primary" form="form-habit">
+          저장
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Settings -->
+  <div class="modal" id="modal-settings" aria-hidden="true">
+    <div class="modal-overlay" data-modal-close></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title">설정</h2>
+        <button class="btn-icon modal-close" data-modal-close aria-label="닫기">
+          ✕
+        </button>
+      </div>
+      
+      <div class="modal-body">
+        <div class="settings-section">
+          <h3>데이터 관리</h3>
+          <div class="settings-buttons">
+            <button class="btn btn-secondary" id="btn-export">
+              📤 데이터 내보내기
+            </button>
+            <button class="btn btn-secondary" id="btn-import">
+              📥 데이터 가져오기
+            </button>
+            <input type="file" id="file-import" accept=".json" style="display: none;">
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <h3>정보</h3>
+          <p>
+            버전: <strong id="app-version">1.0.0</strong><br>
+            <a href="https://github.com/junsang-dong/vibe-1130-acorn-activity-tracker-app-auto-release-p2" target="_blank" rel="noopener">
+              GitHub 저장소
+            </a>
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div class="toast" id="toast" aria-live="polite" aria-atomic="true">
+    <span class="toast-message" id="toast-message"></span>
+  </div>
+
+  <!-- Scripts -->
+  <script type="module" src="/js/app.js"></script>
+  
+  <!-- Service Worker Registration -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+          .then(reg => console.log('ServiceWorker registered'))
+          .catch(err => console.log('ServiceWorker registration failed:', err));
+      });
+    }
+  </script>
+</body>
+</html>
+

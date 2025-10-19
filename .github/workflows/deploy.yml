@@ -1,0 +1,205 @@
+name: Deploy to Vercel & Product Hunt
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  NODE_VERSION: '18'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for version detection
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Determine version
+        id: version
+        run: |
+          # Try to get version from git tag first
+          if git describe --tags --exact-match 2>/dev/null; then
+            VERSION=$(git describe --tags --exact-match | sed 's/^v//')
+            echo "VERSION=$VERSION" >> $GITHUB_ENV
+            echo "version=$VERSION" >> $GITHUB_OUTPUT
+          else
+            # Fall back to package.json version
+            VERSION=$(node -p "require('./package.json').version")
+            echo "VERSION=$VERSION" >> $GITHUB_ENV
+            echo "version=$VERSION" >> $GITHUB_OUTPUT
+          fi
+          echo "📦 Version: $VERSION"
+      
+      - name: Run tests
+        run: npm test
+        continue-on-error: false
+      
+      - name: Build application
+        run: npm run build
+      
+      - name: Install Vercel CLI
+        run: npm install -g vercel@latest
+      
+      - name: Deploy to Vercel (Production)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        id: deploy
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          echo "🚀 Deploying to Vercel..."
+          
+          # Deploy and capture output
+          DEPLOY_OUTPUT=$(vercel --token $VERCEL_TOKEN --prod --yes 2>&1)
+          echo "$DEPLOY_OUTPUT"
+          
+          # Extract deployment URL from output
+          DEPLOY_URL=$(echo "$DEPLOY_OUTPUT" | grep -Eo 'https://[^ ]+' | head -1)
+          
+          if [ -z "$DEPLOY_URL" ]; then
+            echo "❌ Failed to extract deployment URL"
+            exit 1
+          fi
+          
+          echo "DEPLOY_URL=$DEPLOY_URL" >> $GITHUB_ENV
+          echo "deploy_url=$DEPLOY_URL" >> $GITHUB_OUTPUT
+          echo "✅ Deployed to: $DEPLOY_URL"
+      
+      - name: Deploy to Vercel (Preview)
+        if: github.event_name == 'pull_request'
+        id: deploy-preview
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          echo "🔍 Deploying preview to Vercel..."
+          DEPLOY_OUTPUT=$(vercel --token $VERCEL_TOKEN --yes 2>&1)
+          echo "$DEPLOY_OUTPUT"
+          DEPLOY_URL=$(echo "$DEPLOY_OUTPUT" | grep -Eo 'https://[^ ]+' | head -1)
+          echo "DEPLOY_URL=$DEPLOY_URL" >> $GITHUB_ENV
+          echo "deploy_url=$DEPLOY_URL" >> $GITHUB_OUTPUT
+          echo "✅ Preview deployed to: $DEPLOY_URL"
+      
+      - name: Generate Product Hunt content with GPT
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          echo "🤖 Generating Product Hunt content..."
+          npm run generate-ph-content
+          
+          # Display generated content
+          cat ph_post.json
+      
+      - name: Post to Product Hunt
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        id: product-hunt
+        env:
+          PRODUCT_HUNT_TOKEN: ${{ secrets.PRODUCT_HUNT_TOKEN }}
+          DEPLOY_URL: ${{ env.DEPLOY_URL }}
+          VERSION: ${{ env.VERSION }}
+        run: |
+          echo "📢 Posting to Product Hunt..."
+          npm run post-to-ph
+          
+          # Extract post URL from response
+          if [ -f ph_response.json ]; then
+            PH_POST_URL=$(node -p "require('./ph_response.json').url || 'N/A'")
+            echo "PH_POST_URL=$PH_POST_URL" >> $GITHUB_ENV
+            echo "post_url=$PH_POST_URL" >> $GITHUB_OUTPUT
+            echo "✅ Posted to Product Hunt: $PH_POST_URL"
+          fi
+        continue-on-error: true  # Don't fail deployment if PH posting fails
+      
+      - name: Update CHANGELOG
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          echo "📝 Updating CHANGELOG..."
+          npm run update-changelog
+      
+      - name: Commit CHANGELOG updates
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore: update CHANGELOG for version ${{ env.VERSION }}"
+          file_pattern: CHANGELOG.md README.md
+          commit_user_name: github-actions[bot]
+          commit_user_email: github-actions[bot]@users.noreply.github.com
+        continue-on-error: true
+      
+      - name: Upload artifacts (dry-run)
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: product-hunt-preview
+          path: |
+            ph_post.json
+            dist/
+          retention-days: 7
+      
+      - name: Deployment Summary
+        if: always()
+        run: |
+          echo "## 🎉 Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Item | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| 📦 Version | \`${{ env.VERSION }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🚀 Deploy URL | ${{ env.DEPLOY_URL }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 📢 Product Hunt | ${{ env.PH_POST_URL || 'N/A' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🔄 Event | \`${{ github.event_name }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🌿 Branch | \`${{ github.ref_name }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| 👤 Actor | @${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            echo "### 🔍 Preview Mode" >> $GITHUB_STEP_SUMMARY
+            echo "This is a preview deployment. Product Hunt posting is disabled." >> $GITHUB_STEP_SUMMARY
+            echo "Generated content is available in artifacts." >> $GITHUB_STEP_SUMMARY
+          fi
+      
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "❌ Deployment failed!"
+          # Add Slack/webhook notification here if needed
+          # curl -X POST ${{ secrets.SLACK_WEBHOOK }} -d '{"text":"Deployment failed for ${{ github.ref }}"}'
+
+  retry-on-failure:
+    needs: deploy
+    if: failure()
+    runs-on: ubuntu-latest
+    strategy:
+      max-parallel: 1
+      matrix:
+        retry: [1, 2, 3]
+    
+    steps:
+      - name: Wait before retry
+        run: |
+          WAIT_TIME=$((2 ** ${{ matrix.retry }} * 30))
+          echo "⏳ Waiting ${WAIT_TIME}s before retry ${{ matrix.retry }}..."
+          sleep $WAIT_TIME
+      
+      - name: Trigger retry
+        run: |
+          echo "🔄 Triggering retry ${{ matrix.retry }}..."
+          # This job serves as a placeholder for retry logic
+          # In practice, you might want to re-trigger the workflow or specific jobs
+
