@@ -7,6 +7,12 @@
 
 습관을 추적하고 일일 진행 상황을 명확하고 직관적으로 확인하세요. 목표를 향해 나아가는 동안 동기를 유지하고 일관성을 유지하세요.
 
+## 🚀 빠른 배포
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fjunsang-dong%2Fvibe-1129-acorn-activity-tracker-app-auto-release-p2)
+
+**3분 안에 배포하고 바로 사용하세요!** → [Vercel 빠른 배포 가이드](VERCEL_SETUP_QUICK.md)
+
 ## ✨ 주요 기능
 
 * **타일형 그리드 트래킹**: 직관적인 타일 기반 그리드 차트로 진행 상황 모니터링
